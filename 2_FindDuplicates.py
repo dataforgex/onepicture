@@ -15,7 +15,7 @@ delete_list = r'C:\Temp\photo_cleaner\delete-list.csv'
 df = pd.DataFrame(pd.read_csv(pics_meta_data, encoding='utf-8',sep='|'))
 pic_cnt=len(df.index)
 print(f'read in picture list and found {pic_cnt} pictures')
-print('find unique name/size/timestamp with minimum directory length')
+print('find unique filename/size with minimum directory length')
 df_min = df.groupby(['CheckField'])['Length'].min()
 #write result to csv to check content
 df_min.to_csv(list_to_keep,encoding='utf-8',header=['LengthMin'],sep='|')
