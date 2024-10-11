@@ -2,122 +2,141 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
 # Dan Zhao
-# 12-07-2020
+# 10-11-2024
 #===============================================================================
+# This program scans a directory for image files, creates metadata, identifies duplicate files, 
+# and moves redundant files to a specified directory.
+# Duplicate files are identified based on their hash values to ensure content-based matching.
+# This code was improved and refactored with the assistance of OpenAI's language model, ChatGPT-4, to enhance readability and efficiency.
 import os
-import datetime
+import datetime as dt
 import pandas as pd
+import hashlib
+from pathlib import Path
 
-def rowID_gen(n):
-    for i in range(1,n,1):
-        yield i
-rowID=rowID_gen(1000000)
-
-def make_df_from_file_meta_data(picture_dir,time_line_dir,redundent_file_dir):
-    '''
-    scan directory for files and return dataframe
-    '''
-    csvlist=[]
-    for root, dirs, filenames in os.walk(picture_dir):
-        # filenames is a list object therefore loop is required below
-        for filename in filenames:
-            rID = next(rowID)
-            Filename = filename
-            Full_path = os.path.join(root,filename)
-            ModifiedTime = str(datetime.datetime.fromtimestamp(os.stat(Full_path).st_mtime))
-            yyyymm_dir = time_line_dir+'\\'+ModifiedTime[:7]+'\\'+Filename
-            delete_dir = redundent_file_dir+'\\'+str(rID)+Filename
-            Length = len(Full_path)
-            SizeKB = str(os.stat(Full_path).st_size/1024)
-            CheckField = Filename + SizeKB
-            csvlist.append([rID, Filename, Full_path, yyyymm_dir,delete_dir,\
-                            Length, SizeKB, ModifiedTime, CheckField]
-                          ) 
-    df=pd.DataFrame(csvlist)
-    mapping={df.columns[0]:'rID'
-            ,df.columns[1]:'Filename'
-            ,df.columns[2]:'Full_path'
-            ,df.columns[3]:'yyyymm_dir'
-            ,df.columns[4]:'delete_dir'
-            ,df.columns[5]:'Length'
-            ,df.columns[6]:'SizeKB'
-            ,df.columns[7]:'ModifiedTime'
-            ,df.columns[8]:'CheckField'
-            }
-    df.rename(columns=mapping,inplace=True)
-    cnt=len(df.index)
-    print(f'--***--Program found in total {cnt} pictures in directory '+my_picture_dir)
-    return df
-
-def create_csv_from_df(df,csv_dir):
-    '''
-    create csv file from dataframe
-    '''
-    with open(csv_dir, 'w', encoding='utf-8') as outputfile:
-        df.to_csv(outputfile,sep="|"
-                 ,index=False
-                 ,encoding="utf-8"
-                 ,line_terminator='\n'
-                 ,header=['rID'
-                         ,'Filename'
-                         ,'Full_path'
-                         ,'yyyymm_dir'
-                         ,'delete_dir'
-                         ,'Length'
-                         ,'SizeKB'
-                         ,'ModifiedTime'
-                         ,'CheckField'
-                         ]
-                 )
-    print('--***--Program is saving file list to '+csv_dir)
-
-def find_unique_files(df,csv_dir):
-    '''
-    find unique files and log result to csv file
-    return dataframe
-    '''
-    print('--***--Program finding unique files based on name and size')
-    df1 = df[['CheckField', 'Length']]
-    df_unique = df1.groupby(['CheckField'], as_index=False, sort=False)['Length'].min()
-    df_unique.to_csv(csv_dir,encoding='utf-8',header=['CheckField','LengthMin'],sep='|')
-    print(f'--***--Program found in total {len(df_unique.index)} unique files')
-    print('--***--Program is saving unique file list to: '+csv_dir)
-    df_unique.columns = ['CheckFieldUnique','LengthMin']
-    return df_unique
-
-def moving_duplicated_files(df_all,df_unique,csv_dir):
-    '''
-    find and move duplicated files to deleteme directory and log result to csv file
-    return dataframe
-    '''
-    print('--***--Program is idendtifing redundent files.') 
-    df_join = pd.merge(df,df_unique, how='left',left_on=['CheckField','Length'],right_on=['CheckFieldUnique','LengthMin'])
-    df_to_delete = df_join[df_join.Filename != 'Thumbs.db']
-    df_to_delete = df_to_delete[df_to_delete['LengthMin'].isna()]
-    file_count = df_to_delete[['rID']].count()
-    print(f'--***--Program found {file_count.values} redundent files' )
-    df_to_delete.to_csv(csv_dir, encoding='utf-8', sep='|',index=False)
-    n=1
-    for ind in df_to_delete.index:
-        print('--***--Program is moving {} to {}'.format(df_to_delete['Full_path'][ind],df_to_delete['delete_dir'][ind]))
-        os.rename(df_to_delete['Full_path'][ind], df_to_delete['delete_dir'][ind])
-        print('--***--moved files count '+str(n))
-        n=n+1
-
-
-if __name__=="__main__":
-    print('--***--Program onepicture starting...')
-    #pd.set_option('display.expand_frame_repr', False)
-    scanned_files_log_dir = r'D:\onepicture_logs\all-list.csv'
-    my_picture_dir = r'D:\ALL_PICTURES'
-    my_photo_time_line_dir = r'D:\Photo_Time_Line'
-    redundent_file_dir = r'D:\onepicture_deleteme'
-    files_to_keep_csv_dir = r'D:\onepicture_logs\keep-list.csv'
-    files_to_delete_csv_dir = r'D:\onepicture_logs\delete-list.csv'
+def calculate_file_hash(file_path: str) -> str | None:
+    """
+    Calculate the SHA-256 hash of a file.
     
-    df = make_df_from_file_meta_data(my_picture_dir, my_photo_time_line_dir, redundent_file_dir)
-    create_csv_from_df(df, scanned_files_log_dir)
-    df_unique = find_unique_files(df,files_to_keep_csv_dir)
-    moving_duplicated_files(df,df_unique,files_to_delete_csv_dir)
-    print('--***--Program onepicture ended')    
+    Args:
+        file_path (str): The path to the file.
+    
+    Returns:
+        str | None: The SHA-256 hash of the file, or None if the file cannot be found.
+    """
+    sha256_hash = hashlib.sha256()
+    try:
+        with open(file_path, "rb") as f:
+            for byte_block in iter(lambda: f.read(4096), b""):
+                sha256_hash.update(byte_block)
+    except FileNotFoundError:
+        return None
+    return sha256_hash.hexdigest()
 
+def make_dataframe_from_metadata(directory_path: str) -> pd.DataFrame:
+    """
+    Scan the specified directory for files and create a dataframe with metadata for each file.
+    
+    Args:
+        directory_path (str): The directory containing the image files.
+    
+    Returns:
+        pd.DataFrame: A dataframe containing metadata (filename, path, size, modified time, and hash) of the scanned files.
+    """
+    file_metadata_list = []
+    for root, _, filenames in os.walk(directory_path):
+        for filename in filenames:
+            full_path = Path(root) / filename
+            try:
+                file_stats = full_path.stat()
+                modified_time = dt.datetime.fromtimestamp(file_stats.st_mtime).isoformat()
+                size_kb = file_stats.st_size / 1024
+                file_hash = calculate_file_hash(str(full_path))
+                if file_hash:
+                    file_metadata_list.append([filename, str(full_path), size_kb, modified_time, file_hash])
+            except (FileNotFoundError, PermissionError):
+                print(f'[WARNING] Skipping file "{full_path}" due to missing permissions or file not found.')
+                continue
+
+    return pd.DataFrame(file_metadata_list, columns=['Filename', 'Full_path', 'SizeKB', 'ModifiedTime', 'FileHash'])
+
+def move_duplicate_files(dataframe: pd.DataFrame) -> None:
+    """
+    Identify and move duplicate files to a redundant directory.
+    
+    Args:
+        dataframe (pd.DataFrame): The dataframe containing all file metadata.
+    
+    Moves:
+        Redundant files to a directory named 'onepicture_deleteme'.
+    """
+    redundant_directory = Path(r'D:/onepicture_deleteme')
+    redundant_directory.mkdir(parents=True, exist_ok=True)
+
+    unique_files_df = dataframe.drop_duplicates(subset='FileHash')
+    duplicates_df = dataframe.loc[~dataframe.index.isin(unique_files_df.index)]
+    duplicates_df = duplicates_df[duplicates_df['Filename'] != 'Thumbs.db']
+
+    print(f'[INFO] Number of redundant files found: {len(duplicates_df.index)}')
+    for idx, row in duplicates_df.iterrows():
+        destination_path = redundant_directory / f"{idx}_{row['Filename']}"
+        try:
+            print(f'[ACTION] Moving file from "{row['Full_path']}" to "{destination_path}"')
+            Path(row['Full_path']).rename(destination_path)
+        except (FileNotFoundError, PermissionError) as e:
+            print(f'[ERROR] Failed to move file "{row['Full_path']}": {e}')
+
+def create_timeline_directories(unique_files_df: pd.DataFrame, timeline_directory: str) -> None:
+    """
+    Create directories based on a timeline (yyyy-mm) and move non-duplicate files accordingly.
+    
+    Args:
+        unique_files_df (pd.DataFrame): The dataframe containing unique files.
+        timeline_directory (str): The root directory for creating the timeline structure.
+    
+    Moves:
+        Unique files to subdirectories organized by year and month of the modified time.
+    """
+    timeline_root = Path(timeline_directory)
+    timeline_root.mkdir(parents=True, exist_ok=True)
+
+    for _, row in unique_files_df.iterrows():
+        modified_time = dt.datetime.fromisoformat(row['ModifiedTime'])
+        year_month = modified_time.strftime('%Y-%m')
+        destination_dir = timeline_root / year_month
+        hash_file_path = destination_dir / ".processed_files.hash"
+
+        # Read existing hashes from the .hash file
+        processed_hashes = set()
+        if hash_file_path.exists():
+            with open(hash_file_path, "r") as hash_file:
+                processed_hashes = {line.strip() for line in hash_file}
+
+        # Check if the file has already been processed
+        if row['FileHash'] in processed_hashes:
+            print(f'[INFO] File "{row['Filename']}" already exists in the timeline directory, skipping.')
+            continue
+
+        destination_dir.mkdir(parents=True, exist_ok=True)
+        destination_path = destination_dir / row['Filename']
+
+        try:
+            print(f'[ACTION] Moving file from "{row['Full_path']}" to "{destination_path}"')
+            Path(row['Full_path']).rename(destination_path)
+            # Update the hash file with the new hash
+            with open(hash_file_path, "a") as hash_file:
+                hash_file.write(f"{row['FileHash']}\n")
+        except (FileNotFoundError, PermissionError) as e:
+            print(f'[ERROR] Failed to move file "{row['Full_path']}": {e}')
+
+if __name__ == "__main__":
+    print('[INFO] Program "onepicture" has started...')
+    picture_directory = r'D:/ALL_PICTURES'
+    timeline_directory = r'D:/Photo_Timeline'
+
+    metadata_df = make_dataframe_from_metadata(picture_directory)
+    unique_files_df = metadata_df.drop_duplicates(subset='FileHash')
+    move_duplicate_files(metadata_df)
+    create_timeline_directories(unique_files_df, timeline_directory)
+
+    print('[INFO] Program "onepicture" has ended.')
