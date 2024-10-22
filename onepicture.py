@@ -16,9 +16,9 @@ import hashlib
 from pathlib import Path
 
 # Directory paths 
-PICTURE_DIRECTORY = r'D:/ALL_PICTURES'
-REDUNDANT_DIRECTORY = r'D:/onepicture_deleteme'
-TIMELINE_DIRECTORY = r'D:/Photo_Timeline'
+PICTURE_DIRECTORY = r'/Volumes/DanExtDisk2/ALL_PICTURES'
+REDUNDANT_DIRECTORY = r'/Volumes/DanExtDisk2/onepicture_deleteme'
+TIMELINE_DIRECTORY = r'/Volumes/DanExtDisk2/Photo_Timeline'
 
 def calculate_file_hash(file_path: str) -> Optional[str]:
     """
