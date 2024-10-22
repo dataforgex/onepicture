@@ -20,10 +20,10 @@ import concurrent.futures
 import multiprocessing
 
 # Directory paths 
-PICTURE_DIRECTORY = r'/Volumes/DanExtDisk2/photo_Timeline'
+PICTURE_DIRECTORY = r'/Volumes/DanExtDisk2/photo_Timeline/2024-08'
 REDUNDANT_DIRECTORY = r'/Volumes/DanExtDisk2/onepicture_deleteme'
-TIMELINE_DIRECTORY = r'/Volumes/DanExtDisk2/photo_Timeline'
-BATCH_SIZE = 100
+TIMELINE_DIRECTORY = r'/Volumes/DanExtDisk2/Photo_Time_line'
+BATCH_SIZE = 1000
 VERBOSE = True  # Toggle for detailed output
 
 CPU_CORES = multiprocessing.cpu_count()  # Get the number of CPU cores available
@@ -87,7 +87,7 @@ def make_dataframe_from_metadata(directory_path: str) -> pd.DataFrame:
 
     # Use ThreadPoolExecutor to parallelize the file processing with more CPU cores for faster performance
     with concurrent.futures.ThreadPoolExecutor(max_workers=CPU_CORES) as executor:
-        all_files = [Path(root) / filename for root, _, filenames in os.walk(directory_path) for filename in filenames if filename not in ('Thumbs.db', '.DS_Store')]
+        all_files = [Path(root) / filename for root, _, filenames in os.walk(directory_path) for filename in filenames if filename not in ('Thumbs.db', '.DS_Store','.processed_files.hash')]
         executor.map(process_file, all_files)
 
     return pd.DataFrame(file_metadata_list, columns=['Filename', 'Full_path', 'SizeKB', 'ModifiedTime', 'FileHash'])
