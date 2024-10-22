@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/Library/anaconda3/bin/python
 # -*- coding: utf-8 -*-
 #===============================================================================
 # Dan Zhao
@@ -8,6 +8,7 @@
 # and moves redundant files to a specified directory.
 # Duplicate files are identified based on their hash values to ensure content-based matching.
 # This code was improved and refactored with the assistance of OpenAI's language model, ChatGPT-4, to enhance readability and efficiency.
+from typing import Optional
 import os
 import datetime as dt
 import pandas as pd
@@ -19,7 +20,7 @@ PICTURE_DIRECTORY = r'D:/ALL_PICTURES'
 REDUNDANT_DIRECTORY = r'D:/onepicture_deleteme'
 TIMELINE_DIRECTORY = r'D:/Photo_Timeline'
 
-def calculate_file_hash(file_path: str) -> str | None:
+def calculate_file_hash(file_path: str) -> Optional[str]:
     """
     Calculate the SHA-256 hash of a file.
     
@@ -27,7 +28,7 @@ def calculate_file_hash(file_path: str) -> str | None:
         file_path (str): The path to the file.
     
     Returns:
-        str | None: The SHA-256 hash of the file, or None if the file cannot be found.
+        Optional[str]: The SHA-256 hash of the file, or None if the file cannot be found.
     """
     sha256_hash = hashlib.sha256()
     try:
@@ -86,10 +87,10 @@ def move_duplicate_files(dataframe: pd.DataFrame) -> None:
     for idx, row in duplicates_df.iterrows():
         destination_path = redundant_directory / f"{idx}_{row['Filename']}"
         try:
-            print(f'[ACTION] Moving file from "{row['Full_path']}" to "{destination_path}"')
+            print(f'[ACTION] Moving file from "{row["Full_path"]}" to "{destination_path}"')
             Path(row['Full_path']).rename(destination_path)
         except (FileNotFoundError, PermissionError) as e:
-            print(f'[ERROR] Failed to move file "{row['Full_path']}": {e}')
+            print(f'[ERROR] Failed to move file "{row["Full_path"]}": {e}')
 
 def create_timeline_directories(unique_files_df: pd.DataFrame, timeline_directory: str) -> None:
     """
@@ -106,6 +107,7 @@ def create_timeline_directories(unique_files_df: pd.DataFrame, timeline_director
     timeline_root.mkdir(parents=True, exist_ok=True)
 
     for _, row in unique_files_df.iterrows():
+        row = row.copy()
         modified_time = dt.datetime.fromisoformat(row['ModifiedTime'])
         year_month = modified_time.strftime('%Y-%m')
         destination_dir = timeline_root / year_month
@@ -119,20 +121,20 @@ def create_timeline_directories(unique_files_df: pd.DataFrame, timeline_director
 
         # Check if the file has already been processed
         if row['FileHash'] in processed_hashes:
-            print(f'[INFO] File "{row['Filename']}" already exists in the timeline directory, skipping.')
+            print(f'[INFO] File "{row["Filename"]}" already exists in the timeline directory, skipping.')
             continue
 
         destination_dir.mkdir(parents=True, exist_ok=True)
         destination_path = destination_dir / row['Filename']
 
         try:
-            print(f'[ACTION] Moving file from "{row['Full_path']}" to "{destination_path}"')
+            print(f'[ACTION] Moving file from "{row["Full_path"]}" to "{destination_path}"')
             Path(row['Full_path']).rename(destination_path)
             # Update the hash file with the new hash
             with open(hash_file_path, "a") as hash_file:
                 hash_file.write(f"{row['FileHash']}\n")
         except (FileNotFoundError, PermissionError) as e:
-            print(f'[ERROR] Failed to move file "{row['Full_path']}": {e}')
+            print(f'[ERROR] Failed to move file "{row["Full_path"]}": {e}')
 
 if __name__ == "__main__":
     print('[INFO] Program "onepicture" has started...')
