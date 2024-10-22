@@ -1,8 +1,8 @@
-#===============================================================================
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
+#===============================================================================
 # Dan Zhao
-# 10-11-2024
+# 10-22-2024
 #===============================================================================
 # This program scans a directory for image files, creates metadata, identifies duplicate files, 
 # and moves redundant files to a specified directory.
@@ -13,6 +13,11 @@ import datetime as dt
 import pandas as pd
 import hashlib
 from pathlib import Path
+
+# Directory paths
+PICTURE_DIRECTORY = r'D:/ALL_PICTURES'
+REDUNDANT_DIRECTORY = r'D:/onepicture_deleteme'
+TIMELINE_DIRECTORY = r'D:/Photo_Timeline'
 
 def calculate_file_hash(file_path: str) -> str | None:
     """
@@ -70,7 +75,7 @@ def move_duplicate_files(dataframe: pd.DataFrame) -> None:
     Moves:
         Redundant files to a directory named 'onepicture_deleteme'.
     """
-    redundant_directory = Path(r'D:/onepicture_deleteme')
+    redundant_directory = Path(REDUNDANT_DIRECTORY)
     redundant_directory.mkdir(parents=True, exist_ok=True)
 
     unique_files_df = dataframe.drop_duplicates(subset='FileHash')
@@ -131,12 +136,10 @@ def create_timeline_directories(unique_files_df: pd.DataFrame, timeline_director
 
 if __name__ == "__main__":
     print('[INFO] Program "onepicture" has started...')
-    picture_directory = r'D:/ALL_PICTURES'
-    timeline_directory = r'D:/Photo_Timeline'
 
-    metadata_df = make_dataframe_from_metadata(picture_directory)
+    metadata_df = make_dataframe_from_metadata(PICTURE_DIRECTORY)
     unique_files_df = metadata_df.drop_duplicates(subset='FileHash')
     move_duplicate_files(metadata_df)
-    create_timeline_directories(unique_files_df, timeline_directory)
+    create_timeline_directories(unique_files_df, TIMELINE_DIRECTORY)
 
     print('[INFO] Program "onepicture" has ended.')
