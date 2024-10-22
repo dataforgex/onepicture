@@ -14,7 +14,7 @@ import pandas as pd
 import hashlib
 from pathlib import Path
 
-# Directory paths
+# Directory paths 
 PICTURE_DIRECTORY = r'D:/ALL_PICTURES'
 REDUNDANT_DIRECTORY = r'D:/onepicture_deleteme'
 TIMELINE_DIRECTORY = r'D:/Photo_Timeline'
